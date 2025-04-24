@@ -1,37 +1,76 @@
-# FireCrawlDeepResearch 実装・拡張ガイド
+# FireCrawl DeepResearch 実装・拡張ガイド
 
 ## 1. FireCrawl DeepResearch 機能の全体像
 
-FireCrawl DeepResearchは、LLM（大規模言語モデル）を活用してWebリサーチを自動化する機能です。APIリクエスト受付から検索・分析・レポート生成までを一貫して処理します。
+FireCrawl DeepResearchは、LLM（大規模言語モデル）を活用してWebリサーチを自動化する機能です。APIリクエスト受付から検索・分析・レポート生成までを一貫して処理します。複数のAIプロバイダー（OpenAI、Google Gemini、Azure OpenAIなど）に対応しており、環境変数を適切に設定するだけで切り替えできます。
 
-### 構成の流れ
+### 機能の構成と流れ
+
 1. **APIエンドポイント**
-    - `/deep-research` でジョブ作成、`/deep-research/:jobId` で状態取得
+    - `/deep-research` でジョブ作成
+    - `/deep-research/:jobId` でジョブ状態取得
 2. **コントローラー層**
-    - deep-researchのジョブ作成・状態取得を担当
+    - `deep-research.ts` – リサーチジョブ作成を担当
+    - `deep-research-status.ts` – ジョブ状態取得を担当
 3. **サービス層**
-    - `performDeepResearch` でワークフロー全体を制御
-    - `ResearchLLMService` でLLMを用いた検索クエリ生成・分析・レポート作成
-4. **Redis連携**
-    - ジョブの進捗・状態・結果を保存/取得
+    - `performDeepResearch` – ワークフロー全体の制御
+    - `ResearchLLMService` – LLMを利用した検索クエリ生成、分析、レポート作成
+    - `ResearchStateManager` – リサーチ処理の状態管理
+4. **データストア**
+    - Redisデータベースを使用してジョブの進捗、状態、結果を保存/取得
 5. **ワーカー層**
-    - バックグラウンドでジョブ実行
+    - バックグラウンドでジョブを実行し、UIブロックなしで処理
 
 ---
 
-## 1.0.1 Docker Composeによる起動方法（Google Gemini APIキー指定）
+## 2. セットアップと起動方法
 
-Google Geminiなど外部AIプロバイダーを利用する場合は、APIキーを環境変数として指定してDocker Composeを起動してください。
+### 2.1 環境変数ファイルの準備
 
-例: `GOOGLE_GENERATIVE_AI_API_KEY` を指定して起動する場合
+FireCrawl DeepResearchを起動する前に、必要な環境変数を設定する必要があります。プロジェクトルートディレクトリにある `.env.sample` ファイルを `.env` としてコピーし、必要な設定を行います。
 
 ```bash
-GOOGLE_GENERATIVE_AI_API_KEY=your-gemini-api-key docker compose up -d
+# .env.sample ファイルを .env にコピー
+cp .env.sample .env
+
+# エディタで開いて編集
+nano .env
+# または
+vim .env
 ```
 
-- `your-gemini-api-key` 部分はGoogle Cloud Console等で取得した有効なAPIキーに置き換えてください。
-- `.env` ファイルで指定してもOKですが、セキュリティ上コマンドラインで一時的に渡す方法も推奨です。
-- 他のプロバイダー（OpenAI, Anthropic等）の場合も同様にAPIキー用環境変数を指定してください。
+`.env` ファイルには、使用するAIプロバイダー（Google Gemini、Azure OpenAI、OpenAIなど）に応じて、必要なAPIキーや設定を記入します。
+
+主な設定項目：
+
+- `MODEL_PROVIDER` - 使用するAIプロバイダー（"google"、"azure"、"openai"など）
+- `MODEL_NAME` - 使用するモデル名（プロバイダーに対応した名称）
+- `MODEL_EMBEDDING_NAME` - エンベディングモデル名
+- 各プロバイダーのAPIキー（GOOGLE_GENERATIVE_AI_API_KEY、AZURE_OPENAI_API_KEYなど）
+
+### 2.2 Docker Composeでの起動方法
+
+環境変数ファイル（`.env`）を準備した後、以下のコマンドでサービスを起動します：
+
+```bash
+# .env ファイルから環境変数を読み込んで起動
+docker compose up -d
+```
+
+代替方法として、環境変数をコマンドラインから直接指定することもできます：
+
+```bash
+# Google Gemini APIキーを指定する場合
+MODEL_PROVIDER=google MODEL_NAME=gemini-2.5-flash-preview-04-17 GOOGLE_GENERATIVE_AI_API_KEY=your-gemini-api-key docker compose up -d
+
+# Azure OpenAI APIキーを指定する場合
+MODEL_PROVIDER=azure MODEL_NAME=gpt-4 AZURE_OPENAI_API_KEY=your-azure-key AZURE_OPENAI_RESOURCE_NAME=your-resource-name docker compose up -d
+```
+
+注意事項：
+- APIキー部分は各サービスで取得した有効なキーに置き換える必要があります
+- `.env` ファイルで指定する方法が便利ですが、一時的なテストにはコマンドラインでの指定も利用できます
+- モデルプロバイダーを切り替える場合は、対応するAPIキー環境変数を必ず設定してください
 
 ---
 
@@ -230,13 +269,53 @@ async function getEmbedding(text: string) {
 
 ### Docker Composeでの設定方法
 
-`docker-compose.yaml` で以下のように環境変数を設定します：
+### 2.3 Docker Composeの環境変数設定
+
+#### x-common-envを使った共通環境変数の設定
+
+FireCrawlの`docker-compose.yaml`ファイルでは、`x-common-env`セクションで共通環境変数が定義されています。ここにすべてのAIモデルプロバイダーの環境変数が含まれ、各サービスがこれを継承します。
 
 ```yaml
-environment:
-  - MODEL_PROVIDER=openai  # プロバイダーの指定
-  - MODEL_NAME=gpt-4o      # 生成AIモデルの指定
-  - MODEL_EMBEDDING_NAME=text-embedding-3-small  # エンベディングモデルの指定
+# docker-compose.yaml
+x-common-env: &common-env
+  # AI関連の共通環境変数
+  MODEL_PROVIDER: ${MODEL_PROVIDER}
+  MODEL_NAME: ${MODEL_NAME}
+  MODEL_EMBEDDING_NAME: ${MODEL_EMBEDDING_NAME}
+  # OpenAI関連
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL}
+  # Google Gemini関連
+  GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY}
+  # Azure OpenAI関連
+  AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY}
+  AZURE_OPENAI_RESOURCE_NAME: ${AZURE_OPENAI_RESOURCE_NAME}
+  AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2025-03-01-preview}
+  # その他の設定...
+```
+
+各サービスでは、YAMLのアンカー参照機能（`<<: *common-env`）を使って、これらの共通環境変数を継承しています：
+
+```yaml
+# docker-compose.yaml
+services:
+  api:
+    environment:
+      <<: *common-env  # 共通環境変数を継承
+      HOST: "0.0.0.0"
+      PORT: ${INTERNAL_PORT:-3002}
+
+  worker:
+    environment:
+      <<: *common-env  # 共通環境変数を継承
+      FLY_PROCESS_GROUP: worker
+```
+
+この設定により、`.env`ファイルやコマンドラインで指定した環境変数が自動的にすべてのサービスに適用されます。
+
+#### `.env` ファイルの設定例
+
+`.env` ファイルには以下のような設定を記述します：
   - OPENAI_API_KEY=your_api_key_here  # 必要なAPIキー
 ```
 
@@ -412,221 +491,221 @@ worker-1 | 2025-04-23 07:39:35 debug [deep-research:performDeepResearch]: [Deep 
 
 ## 3. LLMモデルの管理と追加
 
-### モデル管理の仕組み
-- モデルは `getModel()` 関数で抽象化
-- 複数のプロバイダー（OpenAI, Anthropic, Ollama, Fireworks, Google など）に対応
-- モデル名は引数または環境変数で指定可能
+## 3. AIモデルの管理とプロバイダー設定
 
-### getModel() の実装例
+### 3.1 モデル管理の仕組み
+
+FireCrawl DeepResearchでは、柔軟なAIモデル管理を実現するための介層が実装されています：
+
+- **モデル抽象化**: `getModel()` 関数で様々なプロバイダーのAIモデルを統一的に取得
+- **複数プロバイダーサポート**: OpenAI、Google Gemini、Azure OpenAI、Anthropic、Ollamaなど多くのプロバイダーに対応
+- **動的モデル選択**: 環境変数またはコード内での指定で柔軟にモデルを切り替え
+- **エンベディングモデルサポート**: `getEmbeddingModel()` 関数でエンベディング生成用モデルも統一的に管理
+
+これは `/srv/firecrawl/apps/api/src/lib/generic-ai.ts` ファイルに実装されています。
+
+### 3.2 モデル取得の核心機能
+
 ```typescript
+// getModelの実装
+// generic-ai.ts
 export function getModel(name: string, provider: Provider = defaultProvider) {
+  // 環境変数から指定されたプロバイダを検証
+  const selectedProvider = provider as string;
+  if (!Object.keys(providerList).includes(selectedProvider)) {
+    console.warn(`指定されたプロバイダ "${selectedProvider}" は無効です。デフォルトの "${defaultProvider}" を使用します。`);
+    provider = defaultProvider;
+  }
+
+  // 環境変数のMODEL_NAMEがあればそれを優先、なければ引数で指定されたモデル名を使用
   return process.env.MODEL_NAME
     ? providerList[provider](process.env.MODEL_NAME)
     : providerList[provider](name);
 }
+
+// 環境変数からプロバイダを決定（MODEL_PROVIDER > OLLAMA_BASE_URL > デフォルト値）
+const defaultProvider: Provider = process.env.MODEL_PROVIDER as Provider || 
+  (process.env.OLLAMA_BASE_URL ? "ollama" : "openai");
 ```
 
-### モデル・プロバイダーの追加方法
-1. **新しいプロバイダーを追加**
-   - 対応SDKをimport
-   - Provider型とproviderListに追加
-2. **新しいモデル名を使う**
-   - getModel("モデル名", "プロバイダー名") で呼び出し
-   - または環境変数 `MODEL_NAME` を設定
+### 3.3 サポートされているプロバイダーとモデル
 
-#### 例: Google Geminiモデルの使用
-```typescript
-// ai-sdkのGemini対応プロバイダーを使用
-import { google } from "@ai-sdk/google";
+#### OpenAIプロバイダー
+- 環境変数: `MODEL_PROVIDER=openai`, `OPENAI_API_KEY=***`
+- 推奨モデル: `gpt-4o`, `gpt-4-turbo`, `gpt-3.5-turbo` 
+- エンベディングモデル: `text-embedding-3-small`, `text-embedding-3-large`
 
-// Geminiモデルを使用する例
-const model = getModel("gemini-2.0-pro", "google");
+#### Google Geminiプロバイダー
+- 環境変数: `MODEL_PROVIDER=google`, `GOOGLE_GENERATIVE_AI_API_KEY=***`
+- 推奨モデル: 
+  - `gemini-2.5-flash-preview-04-17` - 最高速なものの中で生成質が高いプレビューモデル
+  - `gemini-2.0-pro` - 高度な推論タスク向けのモデル
+  - `gemini-2.0-flash` - レイテンシの低い高速モデル
+  - `gemini-2.0-pro-vision` - 画像理解特化モデル
+- エンベディングモデル: `embedding-001`
 
-// 環境変数 GOOGLE_GENERATIVE_AI_API_KEY が必要
-// .envファイル内で以下のように設定
-// GOOGLE_GENERATIVE_AI_API_KEY=your_api_key_here
+#### Azure OpenAIプロバイダー
+- 環境変数: `MODEL_PROVIDER=azure`, `AZURE_OPENAI_API_KEY=***`, `AZURE_OPENAI_RESOURCE_NAME=***`
+- モデル名: Azureにデプロイしたモデル名を指定（例: `gpt-4`, `gpt-4o`, `gpt-35-turbo`）
+- エンベディングモデル: `text-embedding-3-small`, `text-embedding-ada-002`など
+
+#### Anthropicプロバイダー
+- 環境変数: `MODEL_PROVIDER=anthropic`, `ANTHROPIC_API_KEY=***`
+- 推奨モデル: `claude-3-opus-20240229`, `claude-3-sonnet-20240229`, `claude-3-haiku-20240307`
+
+### 3.4 新しいプロバイダーの追加方法
+
+カスタムプロバイダーを追加する手順：
+
+1. **必要な依存関係を追加**
+   ```bash
+   npm install @ai-sdk/your-provider-package --save
+   ```
+
+2. **`generic-ai.ts`を編集してプロバイダーを追加**
+   ```typescript
+   // インポートを追加
+   import { yourProvider } from "@ai-sdk/your-provider-package";
+   
+   // Provider型を拡張
+   export type Provider =
+     | "openai"
+     | "google"
+     | "azure"
+     | "your-provider";  // あなたのプロバイダーを追加
+   
+   // providerListに追加
+   const providerList: Record<Provider, any> = {
+     // 既存プロバイダー...
+     "your-provider": yourProvider({
+       apiKey: process.env.YOUR_PROVIDER_API_KEY,
+       // その他必要な設定
+     }),
+   };
+   ```
+
+3. **環境変数を設定**
+   ```
+   MODEL_PROVIDER=your-provider
+   MODEL_NAME=your-model-name
+   YOUR_PROVIDER_API_KEY=your-api-key
+   ```
+
+
+
+## 4. プロジェクト構成と主要コンポーネント
+
+### 4.1 ディレクトリ構成
+
+```
+/srv/firecrawl/
+├── apps/
+│   ├── api/
+│   │   ├── src/
+│   │   │   ├── controllers/
+│   │   │   │   └── v1/
+│   │   │   │       ├── deep-research.ts        ← DeepResearchリクエスト処理
+│   │   │   │       └── deep-research-status.ts ← 状態取得API
+│   │   │   ├── lib/
+│   │   │   │   ├── deep-research/
+│   │   │   │   │   ├── deep-research-redis.ts  ← Redisデータ保存
+│   │   │   │   │   ├── deep-research-service.ts ← メイン処理
+│   │   │   │   │   └── research-manager.ts     ← リサーチ状態管理
+│   │   │   │   └── generic-ai.ts              ← AIモデル管理
+│   │   │   └── services/
+│   │   │       └── queue-worker.ts          ← バックグラウンドジョブ処理
+└── docker-compose.yaml                        ← Docker環境設定
 ```
 
-#### 利用可能なGemini 2.0モデル
+### 4.2 主要コンポーネントの概要
 
-- **gemini-2.0-pro**: 高度な推論タスク向けの最新モデル、大規模なマルチモーダル機能を備える
-- **gemini-2.0-flash**: レイテンシの低い機能を備えた高速モデル
-- **gemini-2.0-pro-vision**: 画像理解特化のモデル
-- **gemini-2.0-pro-preview-02-05**: 先行プレビューバージョン
+- **ResearchLLMService** (ファイル: `research-manager.ts`)
+  - `generateSearchQueries()`: 検索クエリの生成
+  - `analyzeAndPlan()`: 収集した情報の分析と次の手順の決定
+  - `generateFinalAnalysis()`: 最終レポート生成
 
-#### 利用可能なGemini 1.5モデル (以前のバージョン)
+- **ResearchStateManager** (ファイル: `research-manager.ts`)
+  - リサーチの進捗、見つかった情報、URL履歴を追跡
+  - Redisと結合して状態を持続化
 
-- **gemini-1.5-pro**: 高度な推論タスク向け、最大100万トークンコンテキスト
-- **gemini-1.5-flash**: より高速で効率的な応答のための軽量モデル
+- **deepResearchService** (ファイル: `deep-research-service.ts`)
+  - ワークフロー全体を調整し、検索、ページ取得、分析を実行
 
-#### 例: その他の独自プロバイダー追加
-```typescript
-import { myai } from "@ai-sdk/myai";
-type Provider = ... | "myai";
-const providerList: Record<Provider, any> = {
-  ...,
-  myai,
-};
-```
+- **generic-ai.ts**
+  - 様々なAIプロバイダーへのインターフェースを標準化
 
-## 4. 参考: ディレクトリ構成と主なファイル
-- `/src/lib/deep-research/` : DeepResearchの主要ロジック
-- `/src/lib/generic-ai.ts` : モデル・プロバイダー管理
-- `/src/controllers/v1/deep-research.ts` : エンドポイント処理
-- `/src/services/queue-worker.ts` : バックグラウンドワーカー
+## 5. まとめ
 
-## 5. Docker Composeでの設定方法
+FireCrawl DeepResearchは、最新のLLMを活用した強力なWebリサーチツールとして実装されています。以下は主な特徴と機能です：
 
-Docker Composeを使用してDeepResearchを実行する場合、下記のように環境変数を設定できます。
+- **複数プロバイダーのサポート**: OpenAI、Google Gemini、Azure OpenAI、Anthropicなど多様なプロバイダーに対応
+- **柔軟な設定**: 環境変数を通じて容易にプロバイダーやモデルを切り替え可能
+- **レポート生成**: 複数ソースからの情報を統合した包括的な調査レポートを生成
+- **バックグラウンド処理**: 長時間の処理もバックグラウンドジョブとして実行
 
-### 環境変数によるプロバイダとモデル指定
+この機能をさらに拡張するか、カスタマイズする場合は、本ドキュメントで紹介した主要コンポーネントや環境設定を参考にしてください。
 
-```yaml
-worker:
-  environment:
-    # プロバイダの指定（デフォルトそ"openai"）
-    MODEL_PROVIDER: "google"  # googleプロバイダーを使用
-    # モデル名の指定
-    MODEL_NAME: "gemini-2.0-pro"  # Gemini 2.0 Proモデルを使用
-    # APIキーの設定
-    GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY}
-```
+---
 
-### 他のモデル設定例
+## 6. 付録: Azure OpenAIプロバイダー詳細ガイド
 
-```yaml
-# OpenAIモデル設定例
-MODEL_PROVIDER: "openai"
-MODEL_NAME: "gpt-4o"
-OPENAI_API_KEY: ${OPENAI_API_KEY}
+### 6.1 Azure OpenAIプロバイダーの実装
 
-# Anthropicモデル設定例
-MODEL_PROVIDER: "anthropic"
-MODEL_NAME: "claude-3-opus-20240229"
-ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+FireCrawl DeepResearchにはAzure OpenAIサービスを利用するための完全なサポートが実装されています。この結果、Microsoft Azureのエンタープライズ粒度のセキュリティとスケーラビリティを活用したAIリサーチが可能になります。
 
-# Azure OpenAIモデル設定例
-MODEL_PROVIDER: "azure"
-MODEL_NAME: "gpt-4" # Azureにデプロイしたモデル名
-AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY}
-AZURE_OPENAI_RESOURCE_NAME: "your-azure-resource-name"
-AZURE_OPENAI_API_VERSION: "2025-03-01-preview"
-```
-
-### 設定の優先順位
-
-プロバイダーとモデルの決定は以下の優先順位で行われます：
-
-1. **プロバイダーの決定**
-   - `MODEL_PROVIDER` 環境変数
-   - OLLAMA利用時 (`OLLAMA_BASE_URL` が設定されていれば "ollama")
-   - デフォルト値 ("openai")
-
-2. **モデル名の決定**
-   - `MODEL_NAME` 環境変数
-   - コード内で指定されたモデル名
-
-## 6. Azure OpenAI Service プロバイダー詳細
-
-### 6.1 実装詳細
-
-#### 6.1.1 依存関係
-
-Azure OpenAIサービスを利用するために以下のパッケージをインストールしています：
+#### 依存関係と設定
 
 ```bash
+# 必要な依存関係
+# すでにインストール済みです
 npm install @ai-sdk/azure --save
 ```
 
-#### 6.1.2 プロバイダーの設定
-
-`apps/api/src/lib/generic-ai.ts` ファイルにAzureプロバイダーを追加しました：
-
-1. `Provider`型に`azure`を追加
-2. `createAzure`のインポート
-3. `providerList`に`azure`設定を追加
+`generic-ai.ts`ファイルでは、次のようにAzure OpenAIプロバイダーが設定されています：
 
 ```typescript
-// インポート
-import { createAzure } from "@ai-sdk/azure";
-
-// Provider型の拡張
-export type Provider =
-  | "openai"
-  | "ollama"
-  | "anthropic"
-  | "groq"
-  | "google"
-  | "openrouter"
-  | "fireworks"
-  | "deepinfra"
-  | "vertex"
-  | "azure";  // Azureを追加
-
-// providerListへの追加
-const providerList: Record<Provider, any> = {
-  // 他のプロバイダー設定...
-  azure: createAzure({
-    apiKey: process.env.AZURE_OPENAI_API_KEY,
-    resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME,
-    apiVersion: process.env.AZURE_OPENAI_API_VERSION || "2025-03-01-preview", 
-    baseURL: process.env.AZURE_OPENAI_ENDPOINT, // カスタムエンドポイントがあれば指定
-  }),
-};
+// Azure OpenAIプロバイダー設定
+azure: createAzure({
+  apiKey: process.env.AZURE_OPENAI_API_KEY,
+  resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME,
+  apiVersion: process.env.AZURE_OPENAI_API_VERSION || "2025-03-01-preview", 
+  baseURL: process.env.AZURE_OPENAI_ENDPOINT, // カスタムエンドポイントがあれば指定
+}),
 ```
 
-### 6.2 必要な環境変数
+### 6.2 Azure OpenAIサービスの利用方法
 
-Azure OpenAIサービスを利用するための環境変数：
+#### 必要な環境変数
 
 | 環境変数名 | 説明 | 例/デフォルト値 |
 |------------|------|------------------|
-| `MODEL_PROVIDER` | プロバイダー指定（"azure"を指定) | "azure" |
+| `MODEL_PROVIDER` | プロバイダー指定 | "azure" |
 | `MODEL_NAME` | 使用するモデル名 | "gpt-4" |
+| `MODEL_EMBEDDING_NAME` | エンベディングモデル名 | "text-embedding-3-small" |
 | `AZURE_OPENAI_API_KEY` | Azure OpenAIのAPIキー | *******（秘密情報） |
-| `AZURE_OPENAI_RESOURCE_NAME` | リソース名 | "your-resource-name" |
-| `AZURE_OPENAI_ENDPOINT` | カスタムエンドポイント（任意） | "https://your-resource.openai.azure.com" |
+| `AZURE_OPENAI_RESOURCE_NAME` | リソース名 | "your-resource" |
 | `AZURE_OPENAI_API_VERSION` | APIバージョン（任意） | "2025-03-01-preview" |
 
-### 6.3 Docker Composeでの設定例
+#### 利用可能なモデル
 
-docker-compose.yamlファイルでの環境変数設定例：
-
-```yaml
-services:
-  worker:
-    environment:
-      # Azureプロバイダー指定
-      MODEL_PROVIDER: "azure"
-      # モデル名指定
-      MODEL_NAME: "gpt-4"
-      # Azure OpenAI設定
-      AZURE_OPENAI_API_KEY: "${AZURE_OPENAI_API_KEY}"
-      AZURE_OPENAI_RESOURCE_NAME: "your-resource-name"
-      # 任意の設定
-      AZURE_OPENAI_API_VERSION: "2025-03-01-preview"
-```
-
-### 6.4 利用可能なモデル
-
-Azure OpenAIサービスでは、モデル名をデプロイメント名として指定します。代表的なモデル名：
+Azure OpenAIサービスでは、デプロイしたモデル名を指定します。一般的なモデル名としては：
 
 - `gpt-4`
 - `gpt-4-turbo`
 - `gpt-4o`
-- `gpt-35-turbo` 
-- `text-embedding-ada-002`
+- `gpt-35-turbo`
+- `text-embedding-3-small`
 
-注意：Azure OpenAIサービスではモデルをデプロイする必要があり、使用可能なモデルはデプロイ状況によって異なります。
+注意: Azure環境では事前にモデルをデプロイする必要があります。
 
-### 6.5 テスト方法
+### 6.3 テストとトラブルシューティング
 
-DeepResearchのテスト実行：
+#### テスト方法
 
 ```bash
 # APIリクエスト例
 curl -X POST http://localhost:3002/v1/deep-research -H "Content-Type: application/json" -d '{
-  "topic": "Azure OpenAIサービスとOpenAIの違いと使い分け",
+  "topic": "Azure OpenAIサービスの特徴と活用例",
   "maxDepth": 1,
   "formats": ["markdown"]
 }'
@@ -635,14 +714,12 @@ curl -X POST http://localhost:3002/v1/deep-research -H "Content-Type: applicatio
 curl -s http://localhost:3002/v1/deep-research/{jobId}
 ```
 
-### 6.6 トラブルシューティング
+#### 一般的な問題と解決方法
 
-- **401 Unauthorized エラー**: APIキーが正しく設定されているか確認
-- **Resource not found エラー**: リソース名が正しいか確認
-- **Model not deployed エラー**: 指定したモデルがAzureでデプロイされているか確認
-- **API Version エラー**: サポートされているAPIバージョンを使用しているか確認
-
-環境変数の設定ミスが最も一般的な問題です。エラーログを確認し、正しい設定値を使用してください。
+- **401 Unauthorized**: APIキーのエラー。`AZURE_OPENAI_API_KEY`を確認
+- **Resource not found**: `AZURE_OPENAI_RESOURCE_NAME`やエンドポイントの確認
+- **Model not deployed**: 指定したモデルが実際にAzureでデプロイされているか確認
+- **API Version Error**: 有効なAPIバージョンを使用する（推奨: "2025-03-01-preview"）
 
 ---
 
