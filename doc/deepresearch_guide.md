@@ -279,6 +279,13 @@ MODEL_EMBEDDING_NAME=embedding-001  # Google
 - MODEL_PROVIDER=anthropic
 - MODEL_NAME=claude-3-opus-20240229
 - ANTHROPIC_API_KEY=your_api_key_here
+
+# Azure OpenAIプロバイダ + Azure OpenAIモデル
+- MODEL_PROVIDER=azure
+- MODEL_NAME=gpt-4 または gpt-4o (Azureにデプロイ済みのモデル名)
+- AZURE_OPENAI_API_KEY=your_api_key_here
+- AZURE_OPENAI_RESOURCE_NAME=your-resource-name
+- AZURE_OPENAI_API_VERSION=2025-03-01-preview （任意、デフォルト値あり）
 ```
 
 **間違った組み合わせの例と発生する問題**:
@@ -497,6 +504,13 @@ OPENAI_API_KEY: ${OPENAI_API_KEY}
 MODEL_PROVIDER: "anthropic"
 MODEL_NAME: "claude-3-opus-20240229"
 ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+# Azure OpenAIモデル設定例
+MODEL_PROVIDER: "azure"
+MODEL_NAME: "gpt-4" # Azureにデプロイしたモデル名
+AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY}
+AZURE_OPENAI_RESOURCE_NAME: "your-azure-resource-name"
+AZURE_OPENAI_API_VERSION: "2025-03-01-preview"
 ```
 
 ### 設定の優先順位
