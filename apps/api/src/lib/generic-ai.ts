@@ -8,7 +8,7 @@ import { fireworks } from "@ai-sdk/fireworks";
 import { deepinfra } from "@ai-sdk/deepinfra";
 import { createVertex } from "@ai-sdk/google-vertex";
 
-type Provider =
+export type Provider =
   | "openai"
   | "ollama"
   | "anthropic"
@@ -18,9 +18,9 @@ type Provider =
   | "fireworks"
   | "deepinfra"
   | "vertex";
-const defaultProvider: Provider = process.env.OLLAMA_BASE_URL
-  ? "ollama"
-  : "openai";
+// 環境変数からプロバイダを決定（MODEL_PROVIDER > OLLAMA_BASE_URL > デフォルト値）
+const defaultProvider: Provider = process.env.MODEL_PROVIDER as Provider || 
+  (process.env.OLLAMA_BASE_URL ? "ollama" : "openai");
 
 const providerList: Record<Provider, any> = {
   openai, //OPENAI_API_KEY
@@ -47,6 +47,13 @@ const providerList: Record<Provider, any> = {
 };
 
 export function getModel(name: string, provider: Provider = defaultProvider) {
+  // 環境変数から指定されたプロバイダを検証
+  const selectedProvider = provider as string;
+  if (!Object.keys(providerList).includes(selectedProvider)) {
+    console.warn(`指定されたプロバイダ "${selectedProvider}" は無効です。デフォルトの "${defaultProvider}" を使用します。`);
+    provider = defaultProvider;
+  }
+
   return process.env.MODEL_NAME
     ? providerList[provider](process.env.MODEL_NAME)
     : providerList[provider](name);

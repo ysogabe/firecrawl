@@ -155,6 +155,7 @@ export class ResearchLLMService {
     findings: DeepResearchFinding[] = [],
     costTracking: CostTracking,
   ): Promise<{ query: string; researchGoal: string }[]> {
+    const modelProvider = (process.env.MODEL_PROVIDER || "openai") as import("../generic-ai").Provider;
     const { extract } = await generateCompletions({
       logger: this.logger.child({
         method: "generateSearchQueries",
@@ -196,6 +197,7 @@ export class ResearchLLMService {
           The first SERP query you generate should be a very concise, simple version of the topic. `,
       },
       markdown: "",
+      model: getModel(process.env.MODEL_NAME || "gpt-4o", modelProvider),
       costTrackingOptions: {
         costTracking,
         metadata: {
@@ -329,7 +331,7 @@ export class ResearchLLMService {
         ).text,
       },
       markdown: "",
-      model: getModel("o3-mini"),
+      model: getModel(process.env.MODEL_NAME || "gpt-4o", (process.env.MODEL_PROVIDER || "openai") as import("../generic-ai").Provider),
       costTrackingOptions: {
         costTracking,
         metadata: {

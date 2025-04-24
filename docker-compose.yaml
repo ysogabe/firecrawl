@@ -76,6 +76,11 @@ services:
     environment:
       <<: *common-env
       FLY_PROCESS_GROUP: worker
+      # Google Geminiモデル設定例
+      MODEL_PROVIDER: "google"           # googleプロバイダーを使用
+      MODEL_NAME: "gemini-2.5-flash-preview-04-17"      # Gemini 2.5プレビューモデル
+      MODEL_EMBEDDING_NAME: "embedding-001"  # Google用エンベディングモデル
+      GOOGLE_GENERATIVE_AI_API_KEY: "${GOOGLE_GENERATIVE_AI_API_KEY}"   # Gemini API Key
     depends_on:
       - redis
       - playwright-service
