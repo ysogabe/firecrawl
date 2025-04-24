@@ -20,11 +20,21 @@ x-common-env: &common-env
   REDIS_RATE_LIMIT_URL: ${REDIS_URL:-redis://redis:6379}
   PLAYWRIGHT_MICROSERVICE_URL: ${PLAYWRIGHT_MICROSERVICE_URL:-http://playwright-service:3000/scrape}
   USE_DB_AUTHENTICATION: ${USE_DB_AUTHENTICATION}
+  # AI関連の共通環境変数
+  MODEL_PROVIDER: ${MODEL_PROVIDER}
+  MODEL_NAME: ${MODEL_NAME}
+  MODEL_EMBEDDING_NAME: ${MODEL_EMBEDDING_NAME}
+  # OpenAI関連
   OPENAI_API_KEY: ${OPENAI_API_KEY}
   OPENAI_BASE_URL: ${OPENAI_BASE_URL}
-  MODEL_NAME: ${MODEL_NAME}
-  MODEL_EMBEDDING_NAME: ${MODEL_EMBEDDING_NAME} 
-  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL} 
+  # Ollama関連
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+  # Google Gemini関連
+  GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY}
+  # Azure OpenAI関連
+  AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY}
+  AZURE_OPENAI_RESOURCE_NAME: ${AZURE_OPENAI_RESOURCE_NAME}
+  AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2025-03-01-preview}
   SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
   BULL_AUTH_KEY: ${BULL_AUTH_KEY}
   TEST_API_KEY: ${TEST_API_KEY}
@@ -75,13 +85,6 @@ services:
     environment:
       <<: *common-env
       FLY_PROCESS_GROUP: worker
-      # Azure OpenAIモデル設定
-      MODEL_PROVIDER: "azure"            # azureプロバイダーを使用
-      MODEL_NAME: "gpt-4.1"                # Azureにデプロイしたモデル名
-      MODEL_EMBEDDING_NAME: "text-embedding-3-small"  # Azure用エンベディングモデル
-      AZURE_OPENAI_API_KEY: "${AZURE_OPENAI_API_KEY}"  # Azure OpenAI API Key
-      AZURE_OPENAI_RESOURCE_NAME: "${AZURE_OPENAI_RESOURCE_NAME}"  # Azureリソース名
-      AZURE_OPENAI_API_VERSION: "2025-03-01-preview"    # APIバージョン
     depends_on:
       - redis
       - playwright-service
