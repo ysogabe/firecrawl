@@ -1,8 +1,8 @@
-# DeepResearch 実装・拡張ガイド
+# FireCrawlDeepResearch 実装・拡張ガイド
 
-## 1. DeepResearch 機能の全体像
+## 1. FireCrawl DeepResearch 機能の全体像
 
-DeepResearchは、LLM（大規模言語モデル）を活用してWebリサーチを自動化する機能です。APIリクエスト受付から検索・分析・レポート生成までを一貫して処理します。
+FireCrawl DeepResearchは、LLM（大規模言語モデル）を活用してWebリサーチを自動化する機能です。APIリクエスト受付から検索・分析・レポート生成までを一貫して処理します。
 
 ### 構成の流れ
 1. **APIエンドポイント**
@@ -19,9 +19,25 @@ DeepResearchは、LLM（大規模言語モデル）を活用してWebリサー�
 
 ---
 
+## 1.0.1 Docker Composeによる起動方法（Google Gemini APIキー指定）
+
+Google Geminiなど外部AIプロバイダーを利用する場合は、APIキーを環境変数として指定してDocker Composeを起動してください。
+
+例: `GOOGLE_GENERATIVE_AI_API_KEY` を指定して起動する場合
+
+```bash
+GOOGLE_GENERATIVE_AI_API_KEY=your-gemini-api-key docker compose up -d
+```
+
+- `your-gemini-api-key` 部分はGoogle Cloud Console等で取得した有効なAPIキーに置き換えてください。
+- `.env` ファイルで指定してもOKですが、セキュリティ上コマンドラインで一時的に渡す方法も推奨です。
+- 他のプロバイダー（OpenAI, Anthropic等）の場合も同様にAPIキー用環境変数を指定してください。
+
+---
+
 ## 1.1 ソースコードの関係図（Mermaid形式）
 
-以下はDeepResearchの主要ソースの関係を示すMermaidダイアグラムです。
+以下はFireCrawl DeepResearchの主要ソースの関係を示すMermaidダイアグラムです。
 
 ```mermaid
 flowchart TD
@@ -76,9 +92,9 @@ flowchart TD
     A3 -->|Get Status| D1
 ```
 
-## 1.1.1 DeepResearchで使用されるプロンプト一覧
+## 1.1.1 FireCrawl DeepResearchで使用されるプロンプト一覧
 
-DeepResearch機能では、組み込みの3種類の主要プロンプトが使用されています。これらは`research-manager.ts`に実装されています。
+FireCrawl DeepResearch機能では、組み込みの3種類の主要プロンプトが使用されています。これらは`research-manager.ts`に実装されています。
 
 | メソッド名 | 目的 | システムプロンプトの一部 | ユーザープロンプトの一部 |
 |---------------|--------|-------------------|-------------------|
@@ -90,11 +106,11 @@ DeepResearch機能では、組み込みの3種類の主要プロンプトが使�
 
 ## 1.1.2 `research-manager.ts`の実装詳細
 
-`research-manager.ts`は、DeepResearch機能の中核を担う二つの主要クラスを定義しています。
+`research-manager.ts`は、FireCrawl DeepResearch機能の中核を担う二つの主要クラスを定義しています。
 
 ### `ResearchStateManager`クラス
 
-このクラスは、DeepResearch処理の状態管理を担当し、以下の責務を持ちます：
+このクラスは、DeepResearch処理の状態管理を担当し、以下の責務を持ちます：  
 
 - **状態の追跡**: 検索結果、発見事項、ソース、進行状況などを保持
 - **進行管理**: 完了ステップ数や期待ステップ数の追跡
