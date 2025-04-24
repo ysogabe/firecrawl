@@ -1,10 +1,10 @@
 # FireCrawl DeepResearch 実装・拡張ガイド
 
-## 1. FireCrawl DeepResearch 機能の全体像
+## 1. 概要
 
 FireCrawl DeepResearchは、LLM（大規模言語モデル）を活用してWebリサーチを自動化する機能です。APIリクエスト受付から検索・分析・レポート生成までを一貫して処理します。複数のAIプロバイダー（OpenAI、Google Gemini、Azure OpenAIなど）に対応しており、環境変数を適切に設定するだけで切り替えできます。
 
-### 機能の構成と流れ
+### 1.1 機能の構成と流れ
 
 1. **APIエンドポイント**
     - `/deep-research` でジョブ作成
@@ -74,7 +74,7 @@ MODEL_PROVIDER=azure MODEL_NAME=gpt-4 AZURE_OPENAI_API_KEY=your-azure-key AZURE_
 
 ---
 
-## 1.1 ソースコードの関係図（Mermaid形式）
+### 1.2 ソースコードの関係図
 
 以下はFireCrawl DeepResearchの主要ソースの関係を示すMermaidダイアグラムです。
 
@@ -131,7 +131,7 @@ flowchart TD
     A3 -->|Get Status| D1
 ```
 
-## 1.1.1 FireCrawl DeepResearchで使用されるプロンプト一覧
+#### 1.2.1 FireCrawl DeepResearchで使用されるプロンプト一覧
 
 FireCrawl DeepResearch機能では、組み込みの3種類の主要プロンプトが使用されています。これらは`research-manager.ts`に実装されています。
 
@@ -143,11 +143,11 @@ FireCrawl DeepResearch機能では、組み込みの3種類の主要プロンプ
 
 各プロンプトには詳細な指示と制約が含まれており、詳細な実装は`research-manager.ts`で確認できます。また、JSONスキーマを使用して出力の構造を制御しています。
 
-## 1.1.2 `research-manager.ts`の実装詳細
+#### 1.2.2 `research-manager.ts`の実装詳細
 
 `research-manager.ts`は、FireCrawl DeepResearch機能の中核を担う二つの主要クラスを定義しています。
 
-### `ResearchStateManager`クラス
+##### 1.2.2.1 `ResearchStateManager`クラス
 
 このクラスは、DeepResearch処理の状態管理を担当し、以下の責務を持ちます：  
 
@@ -179,7 +179,7 @@ export class ResearchStateManager {
 - `setNextSearchTopic()`: 次の検索トピックを設定
 - `incrementCompletedSteps()`: 完了ステップ数を増やす
 
-### `ResearchLLMService`クラス
+##### 1.2.2.2 `ResearchLLMService`クラス
 
 こちらは、AIモデルとの直接なプロンプトやレスポンスを担当するクラスです：
 
@@ -212,11 +212,11 @@ export class ResearchLLMService {
 
 ソースコードは環境変数`MODEL_PROVIDER`と`MODEL_NAME`を適切に処理し、様々なAIプロバイダー（OpenAI、Google、Anthropicなど）を切り替えて使用できるように実装されています。
 
-## 1.2 環境変数によるモデル設定
+## 3. モデル・プロバイダー管理
 
 DeepResearchは、様々なAIモデルを柔軟に切り替えて利用できるよう設計されています。主要な環境変数とその特徴を説明します。
 
-### 1.2.1 環境変数の概要
+### 3.1 環境変数の概要
 
 | 環境変数 | 用途 | 例 |
 |-------------------|------|-----|
@@ -224,12 +224,12 @@ DeepResearchは、様々なAIモデルを柔軟に切り替えて利用できる
 | `MODEL_NAME` | 利用する生成AIモデル名 | `gpt-4o`, `gemini-2.5-flash-preview-04-17` |
 | `MODEL_EMBEDDING_NAME` | 利用するエンベディングモデル名 | `text-embedding-3-small`, `embedding-001` |
 
-### 1.2.2 エンベディングモデルの設定
+### 3.2 エンベディングモデルの設定
 
 DeepResearchのワークフローでは、検索クエリやページ内容などをベクトル化（エンベディング）する処理が含まれています。
 この際、`getEmbeddingModel` 関数を通じて利用するエンベディングモデルを選択できます。
 
-### 利用箇所
+#### 3.2.1 利用箇所
 
 `MODEL_EMBEDDING_NAME` は主に以下の場所で利用されています：
 
@@ -241,7 +241,7 @@ DeepResearchのワークフローでは、検索クエリやページ内容な�
   - ドキュメントのベクトル化とインデックス作成に使用
   - 類似ドキュメント検索に使用
 
-### 実装詳細
+#### 3.2.2 実装詳細
 
 ```typescript
 // generic-ai.ts
@@ -267,11 +267,11 @@ async function getEmbedding(text: string) {
 }
 ```
 
-### Docker Composeでの設定方法
+### 3.3 Docker Composeでの設定方法
 
 ### 2.3 Docker Composeの環境変数設定
 
-#### x-common-envを使った共通環境変数の設定
+##### 3.3.1.1 x-common-envを使った共通環境変数の設定
 
 FireCrawlの`docker-compose.yaml`ファイルでは、`x-common-env`セクションで共通環境変数が定義されています。ここにすべてのAIモデルプロバイダーの環境変数が含まれ、各サービスがこれを継承します。
 
@@ -313,32 +313,8 @@ services:
 
 この設定により、`.env`ファイルやコマンドラインで指定した環境変数が自動的にすべてのサービスに適用されます。
 
-#### `.env` ファイルの設定例
 
-`.env` ファイルには以下のような設定を記述します：
-  - OPENAI_API_KEY=your_api_key_here  # 必要なAPIキー
-```
-
-### 設定しなかった場合の動作
-
-`MODEL_EMBEDDING_NAME` を設定しない場合：
-
-- デフォルトでは各関数内でハードコードされた値（多くの場合 `text-embedding-3-small`）が使用されます
-- 機能的な制限はありませんが、特定のユースケースに最適化されたエンベディングモデルを使用できない可能性があります
-- 異なるプロバイダーのエンベディングモデルを使用したい場合は設定が必要です
-
-### 推奨設定
-
-```
-# .env ファイルの例
-MODEL_EMBEDDING_NAME=text-embedding-3-small  # OpenAI
-# または
-MODEL_EMBEDDING_NAME=embedding-001  # Google
-```
-
-他のモデル環境変数（`MODEL_PROVIDER`、`MODEL_NAME`）と組み合わせることで、生成AIモデルとエンベディングモデルを別々に設定できます。
-
-### 注意事項：プロバイダとモデル名の一致
+### 3.4 注意事項：プロバイダとモデル名の一致
 
 **重要**: `MODEL_PROVIDER`と`MODEL_NAME`を設定する際は、互換性のある組み合わせを使用する必要があります。
 
@@ -353,11 +329,6 @@ MODEL_EMBEDDING_NAME=embedding-001  # Google
 - MODEL_PROVIDER=google
 - MODEL_NAME=gemini-2.5-flash-preview-04-17
 - GOOGLE_GENERATIVE_AI_API_KEY=your_api_key_here
-
-# Anthropicプロバイダ + Anthropicモデル
-- MODEL_PROVIDER=anthropic
-- MODEL_NAME=claude-3-opus-20240229
-- ANTHROPIC_API_KEY=your_api_key_here
 
 # Azure OpenAIプロバイダ + Azure OpenAIモデル
 - MODEL_PROVIDER=azure
@@ -379,25 +350,11 @@ MODEL_EMBEDDING_NAME=embedding-001  # Google
 AI_APICallError: You didn't provide an API key... [OpenAIのエラー]
 ```
 
-**以前の問題（修正済み）**:
-DeepResearch機能の一部コードでプロバイダー情報が正しく渡されていない問題がありましたが、`research-manager.ts`の修正により解決されました。下記の必要な修正を行った結果、Google Geminiモデルなど、OpenAI以外のプロバイダーも問題なく使用できるようになりました。
-
-```typescript
-// research-manager.ts の修正例
-async generateSearchQueries(...) {
-  // MODEL_PROVIDER環境変数を明示的に取得
-  const modelProvider = (process.env.MODEL_PROVIDER || "openai") as import("../generic-ai").Provider;
-  // ...
-  model: getModel(process.env.MODEL_NAME || "gpt-4o", modelProvider),
-  // ...
-}
-```
-
 ---
 
-### 1.2.3 モデル選択の修正とテスト結果
+### 3.5 モデル選択の修正とテスト結果
 
-#### ソースコードの修正
+#### 3.5.1 ソースコードの修正
 
 DeepResearch機能で`MODEL_PROVIDER`環境変数を正しく反映させるための修正を行いました。主な修正点は以下の通りです。
 
@@ -435,7 +392,7 @@ async generateSearchQueries(...) {
 }
 ```
 
-#### テスト結果
+#### 3.5.2 テスト結果
 
 修正後、Docker Composeで以下の設定でDeepResearch機能をテストしました。
 
@@ -549,10 +506,6 @@ const defaultProvider: Provider = process.env.MODEL_PROVIDER as Provider ||
 - モデル名: Azureにデプロイしたモデル名を指定（例: `gpt-4`, `gpt-4o`, `gpt-35-turbo`）
 - エンベディングモデル: `text-embedding-3-small`, `text-embedding-ada-002`など
 
-#### Anthropicプロバイダー
-- 環境変数: `MODEL_PROVIDER=anthropic`, `ANTHROPIC_API_KEY=***`
-- 推奨モデル: `claude-3-opus-20240229`, `claude-3-sonnet-20240229`, `claude-3-haiku-20240307`
-
 ### 3.4 新しいプロバイダーの追加方法
 
 カスタムプロバイダーを追加する手順：
@@ -590,8 +543,6 @@ const defaultProvider: Provider = process.env.MODEL_PROVIDER as Provider ||
    MODEL_NAME=your-model-name
    YOUR_PROVIDER_API_KEY=your-api-key
    ```
-
-
 
 ## 4. プロジェクト構成と主要コンポーネント
 
