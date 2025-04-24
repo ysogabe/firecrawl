@@ -7,6 +7,7 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { fireworks } from "@ai-sdk/fireworks";
 import { deepinfra } from "@ai-sdk/deepinfra";
 import { createVertex } from "@ai-sdk/google-vertex";
+import { createAzure } from "@ai-sdk/azure";
 
 export type Provider =
   | "openai"
@@ -17,7 +18,8 @@ export type Provider =
   | "openrouter"
   | "fireworks"
   | "deepinfra"
-  | "vertex";
+  | "vertex"
+  | "azure";
 // 環境変数からプロバイダを決定（MODEL_PROVIDER > OLLAMA_BASE_URL > デフォルト値）
 const defaultProvider: Provider = process.env.MODEL_PROVIDER as Provider || 
   (process.env.OLLAMA_BASE_URL ? "ollama" : "openai");
@@ -43,6 +45,12 @@ const providerList: Record<Provider, any> = {
     } : {
       keyFile: "./gke-key.json",
     },
+  }),
+  azure: createAzure({
+    apiKey: process.env.AZURE_OPENAI_API_KEY,
+    resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME,
+    apiVersion: process.env.AZURE_OPENAI_API_VERSION || "2025-03-01-preview", // デフォルトAPIバージョン指定
+    baseURL: process.env.AZURE_OPENAI_ENDPOINT, // カスタムエンドポイントがあれば指定、なければresourceNameから生成される
   }),
 };
 
