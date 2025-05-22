@@ -11,6 +11,7 @@ import { PDFAntibotError, RemoveFeatureError, UnsupportedFileError } from "../..
 import { readFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import type { Response } from "undici";
+import { getPdfResultFromCache, savePdfResultToCache } from "../../../../lib/gcs-pdf-cache";
 
 type PDFProcessorResult = { html: string; markdown?: string };
 
@@ -26,6 +27,26 @@ async function scrapePDFWithRunPodMU(
     tempFilePath,
   });
 
+  const preCacheCheckStartTime = Date.now();
+
+  try {
+    const cachedResult = await getPdfResultFromCache(base64Content);
+    
+    if (cachedResult) {
+      meta.logger.info("Using cached RunPod MU result for PDF", {
+        tempFilePath,
+      });
+      return cachedResult;
+    }
+  } catch (error) {
+    meta.logger.warn("Error checking PDF cache, proceeding with RunPod MU", {
+      error,
+      tempFilePath,
+    });
+  }
+
+  const timeout = timeToRun ? timeToRun - (Date.now() - preCacheCheckStartTime) : undefined;
+
   const result = await robustFetch({
     url:
       "https://api.runpod.ai/v2/" + process.env.RUNPOD_MU_POD_ID + "/runsync",
@@ -37,6 +58,8 @@ async function scrapePDFWithRunPodMU(
       input: {
         file_content: base64Content,
         filename: path.basename(tempFilePath) + ".pdf",
+        timeout,
+        created_at: Date.now(),
       },
     },
     logger: meta.logger.child({
@@ -48,12 +71,24 @@ async function scrapePDFWithRunPodMU(
       }),
     }),
     mock: meta.mock,
+    abort: timeout ? AbortSignal.timeout(timeout) : undefined,
   });
 
-  return {
+  const processorResult = {
     markdown: result.output.markdown,
     html: await marked.parse(result.output.markdown, { async: true }),
   };
+
+  try {
+    await savePdfResultToCache(base64Content, processorResult);
+  } catch (error) {
+    meta.logger.warn("Error saving PDF to cache", {
+      error,
+      tempFilePath,
+    });
+  }
+
+  return processorResult;
 }
 
 async function scrapePDFWithParsePDF(
@@ -75,6 +110,8 @@ export async function scrapePDF(
   meta: Meta,
   timeToRun: number | undefined,
 ): Promise<EngineScrapeResult> {
+  const startTime = Date.now();
+  
   if (!meta.options.parsePDF) {
     if (meta.pdfPrefetch !== undefined && meta.pdfPrefetch !== null) {
       const content = (await readFile(meta.pdfPrefetch.filePath)).toString("base64");
@@ -139,7 +176,7 @@ export async function scrapePDF(
           }),
         },
         tempFilePath,
-        timeToRun,
+        timeToRun ? (timeToRun - (Date.now() - startTime)) : undefined,
         base64Content,
       );
     } catch (error) {
