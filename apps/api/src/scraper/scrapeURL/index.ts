@@ -22,6 +22,7 @@ import {
   TimeoutError,
   UnsupportedFileError,
   SSLError,
+  PDFInsufficientTimeError,
 } from "./error";
 import { executeTransformers } from "./transformers";
 import { LLMRefusalError } from "./transformers/llmExtract";
@@ -181,6 +182,7 @@ export type InternalOptions = {
   fromCache?: boolean; // Indicates if the document was retrieved from cache
   abort?: AbortSignal;
   urlInvisibleInCurrentCrawl?: boolean;
+  unnormalizedSourceURL?: string;
 
   saveScrapeResultToGCS?: boolean; // Passed along to fire-engine
 };
@@ -340,6 +342,8 @@ async function scrapeURLLoop(meta: Meta): Promise<ScrapeUrlResponse> {
         throw error;
       } else if (error instanceof TimeoutSignal) {
         throw error;
+      } else if (error instanceof PDFInsufficientTimeError) {
+        throw error;
       } else {
         Sentry.captureException(error);
         meta.logger.warn(
@@ -370,10 +374,11 @@ async function scrapeURLLoop(meta: Meta): Promise<ScrapeUrlResponse> {
     screenshot: result.result.screenshot,
     actions: result.result.actions,
     metadata: {
-      sourceURL: meta.url,
+      sourceURL: meta.internalOptions.unnormalizedSourceURL ?? meta.url,
       url: result.result.url,
       statusCode: result.result.statusCode,
       error: result.result.error,
+      numPages: result.result.numPages,
       proxyUsed: meta.featureFlags.has("stealthProxy") ? "stealth" : "basic",
     },
   };
@@ -488,6 +493,8 @@ export async function scrapeURL(
       meta.logger.warn("scrapeURL: Tried to scrape unsupported file", {
         error,
       });
+    } else if (error instanceof PDFInsufficientTimeError) {
+      meta.logger.warn("scrapeURL: Insufficient time to process PDF", { error });
     } else if (error instanceof TimeoutSignal) {
       throw error;
     } else {

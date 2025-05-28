@@ -10,7 +10,6 @@ import {
 import { billTeam } from "../../services/billing/credit_billing";
 import { v4 as uuidv4 } from "uuid";
 import { addScrapeJob, waitForJob } from "../../services/queue-jobs";
-import { logJob } from "../../services/logging/log_job";
 import { getJobPriority } from "../../lib/job-priority";
 import { getScrapeQueue } from "../../services/queue-service";
 import { supabaseGetJobById } from "../../lib/supabase-jobs";
@@ -52,6 +51,7 @@ export async function scrapeController(
       internalOptions: {
         teamId: req.auth.team_id,
         saveScrapeResultToGCS: process.env.GCS_FIRE_ENGINE_BUCKET_NAME ? true : false,
+        unnormalizedSourceURL: preNormalizedBody.url,
       },
       origin: req.body.origin,
       is_scrape: true,
