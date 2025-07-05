@@ -10,11 +10,13 @@ import { generateText } from "ai";
 import { getModel } from "../generic-ai";
 import { calculateCost } from "../../scraper/scrapeURL/transformers/llmExtract";
 import type { CostTracking } from "./extraction-service";
+import { getModelConfig } from "../llm-config";
 
 export async function generateBasicCompletion(prompt: string, costTracking: CostTracking): Promise<{ text: string } | null> {
   try {
+    const config = getModelConfig("extract");
     const result = await generateText({
-      model: getModel("gpt-4o", "openai"),
+      model: getModel(config.modelName, config.provider),
       prompt: prompt,
       providerOptions: {
         anthropic: {
@@ -28,8 +30,8 @@ export async function generateBasicCompletion(prompt: string, costTracking: Cost
         module: "extract",
         method: "generateBasicCompletion",
       },
-      model: "openai/gpt-4o",
-      cost: calculateCost("openai/gpt-4o", result.usage?.promptTokens ?? 0, result.usage?.completionTokens ?? 0),
+      model: `${config.provider}/${config.modelName}`,
+      cost: calculateCost(`${config.provider}/${config.modelName}`, result.usage?.promptTokens ?? 0, result.usage?.completionTokens ?? 0),
       tokens: {
         input: result.usage?.promptTokens ?? 0,
         output: result.usage?.completionTokens ?? 0,
@@ -40,8 +42,11 @@ export async function generateBasicCompletion(prompt: string, costTracking: Cost
     console.error("Error generating basic completion:", error);
     if (error?.type == "rate_limit_error") {
       try {
+        const fallbackConfig = config.fallbackProvider && config.fallbackModel 
+          ? { provider: config.fallbackProvider, modelName: config.fallbackModel }
+          : getModelConfig("extract-retry");
         const result = await generateText({
-          model: getModel("gpt-4o-mini", "openai"), 
+          model: getModel(fallbackConfig.modelName, fallbackConfig.provider), 
           prompt: prompt,
           providerOptions: {
             anthropic: {
@@ -55,8 +60,8 @@ export async function generateBasicCompletion(prompt: string, costTracking: Cost
             module: "extract",
             method: "generateBasicCompletion",
           },
-          model: "openai/gpt-4o-mini",
-          cost: calculateCost("openai/gpt-4o-mini", result.usage?.promptTokens ?? 0, result.usage?.completionTokens ?? 0),
+          model: `${fallbackConfig.provider}/${fallbackConfig.modelName}`,
+          cost: calculateCost(`${fallbackConfig.provider}/${fallbackConfig.modelName}`, result.usage?.promptTokens ?? 0, result.usage?.completionTokens ?? 0),
           tokens: {
             input: result.usage?.promptTokens ?? 0,
             output: result.usage?.completionTokens ?? 0,

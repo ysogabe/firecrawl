@@ -12,6 +12,23 @@ interface ModelPricing {
 const tokenPerCharacter = 0.5;
 const baseTokenCost = 300;
 
+function getModelPriceWithOverride(model: string): ModelPricing | null {
+  // Check for environment variable price overrides
+  const inputOverride = process.env[`PRICE_OVERRIDE_INPUT_${model}`];
+  const outputOverride = process.env[`PRICE_OVERRIDE_OUTPUT_${model}`];
+  
+  if (inputOverride && outputOverride) {
+    return {
+      input_cost_per_token: parseFloat(inputOverride) / 1000000, // Convert from per-million to per-token
+      output_cost_per_token: parseFloat(outputOverride) / 1000000,
+      mode: "chat"
+    };
+  }
+  
+  // Return default pricing
+  return modelPrices[model] as ModelPricing;
+}
+
 export function calculateThinkingCost(costTracking: CostTracking): number {
   return Math.ceil(costTracking.toJSON().totalCost * 20000);
 }
@@ -32,7 +49,7 @@ export function estimateCost(tokenUsage: TokenUsage): number {
   let totalCost = 0;
   try {
     let model = tokenUsage.model ?? (process.env.MODEL_NAME || "gpt-4o-mini");
-    const pricing = modelPrices[model] as ModelPricing;
+    const pricing = getModelPriceWithOverride(model);
 
     if (!pricing) {
       logger.error(`No pricing information found for model: ${model}`);

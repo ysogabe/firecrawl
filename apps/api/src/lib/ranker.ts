@@ -1,12 +1,17 @@
 import { embed } from "ai";
 import { configDotenv } from "dotenv";
 import { getEmbeddingModel } from "./generic-ai";
+import { getModelConfig } from "./llm-config";
 
 configDotenv();
 
 async function getEmbedding(text: string) {
+  // Use configuration system for embedding model selection
+  const embeddingConfig = getModelConfig('embedding');
+  const embeddingModel = getEmbeddingModel(embeddingConfig.modelName, embeddingConfig.provider);
+  
   const { embedding } = await embed({
-    model: getEmbeddingModel("text-embedding-3-small"),
+    model: embeddingModel,
     value: text,
   });
 

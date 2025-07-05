@@ -8,6 +8,7 @@ import {
 } from "../build-prompts";
 import { getModel } from "../../../lib/generic-ai";
 import { CostTracking } from "../extraction-service";
+import { getModelConfig } from "../../llm-config";
 
 export async function checkShouldExtract(
   prompt: string,
@@ -15,6 +16,7 @@ export async function checkShouldExtract(
   doc: Document,
   costTracking: CostTracking,
 ): Promise<{ tokenUsage: TokenUsage; extract: boolean; }> {
+  const config = getModelConfig("extract");
   const shouldExtractCheck = await generateCompletions({
     logger: logger.child({ method: "extractService/checkShouldExtract" }),
     options: {
@@ -33,7 +35,7 @@ export async function checkShouldExtract(
     },
     markdown: buildDocument(doc),
     isExtractEndpoint: true,
-    model: getModel("gpt-4o-mini", "openai"),
+    model: getModel(config.modelName, config.provider),
     costTrackingOptions: {
       costTracking,
       metadata: {

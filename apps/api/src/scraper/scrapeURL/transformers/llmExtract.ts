@@ -19,6 +19,7 @@ import {
 } from "ai";
 import { jsonSchema } from "ai";
 import { getModel } from "../../../lib/generic-ai";
+import { getModelConfig } from "../../../lib/llm-config";
 import { z } from "zod";
 import fs from "fs/promises";
 import Ajv from "ajv";
@@ -242,10 +243,10 @@ export async function generateCompletions({
   markdown,
   previousWarning,
   isExtractEndpoint,
-  model = getModel("gpt-4o-mini", "openai"),
+  model,
   mode = "object",
   providerOptions,
-  retryModel = getModel("claude-3-5-sonnet-20240620", "anthropic"),
+  retryModel,
   costTrackingOptions,
 }: GenerateCompletionsOptions): Promise<{
   extract: any;
@@ -254,9 +255,15 @@ export async function generateCompletions({
   totalUsage: TokenUsage;
   model: string;
 }> {
+  // Use configuration system if no models provided
+  const extractConfig = getModelConfig('extract');
+  let currentModel = model || getModel(extractConfig.modelName, extractConfig.provider);
+  const fallbackModel = retryModel || (extractConfig.fallbackProvider && extractConfig.fallbackModel
+    ? getModel(extractConfig.fallbackModel, extractConfig.fallbackProvider)
+    : undefined);
+
   let extract: any;
   let warning: string | undefined;
-  let currentModel = model;
   let lastError: Error | null = null;
 
   if (markdown === undefined) {
@@ -323,7 +330,7 @@ export async function generateCompletions({
           logger.warn("Quota exceeded, retrying with fallback model", {
             error: lastError.message,
           });
-          currentModel = retryModel;
+          currentModel = fallbackModel || currentModel;
           try {
             const result = await generateText({
               model: currentModel,
@@ -540,7 +547,7 @@ export async function generateCompletions({
         logger.warn("Quota exceeded, retrying with fallback model", {
           error: lastError.message,
         });
-        currentModel = retryModel;
+        currentModel = fallbackModel || currentModel;
         try {
           const retryConfig = {
             ...generateObjectConfig,
@@ -675,8 +682,8 @@ export async function performLLMExtract(
       // model: getModel("qwen-qwq-32b", "groq"),
       // model: getModel("gemini-2.0-flash", "google"),
       // model: getModel("gemini-2.5-pro-preview-03-25", "vertex"),
-      model: getModel("gpt-4o-mini", "openai"),
-      retryModel: getModel("gpt-4o", "openai"),
+      // Use configuration system for model selection
+      // model and retryModel will be determined by generateCompletions using getModelConfig('extract')
       costTrackingOptions: {
         costTracking: meta.costTracking,
         metadata: {
@@ -836,8 +843,12 @@ export async function generateSchemaFromPrompt(
   logger: Logger,
   costTracking: CostTracking,
 ): Promise<{ extract: any }> {
-  const model = getModel("gpt-4o", "openai");
-  const retryModel = getModel("gpt-4o-mini", "openai");
+  // Use configuration system for model selection
+  const extractConfig = getModelConfig('extract');
+  const model = getModel(extractConfig.modelName, extractConfig.provider);
+  const retryModel = extractConfig.fallbackProvider && extractConfig.fallbackModel 
+    ? getModel(extractConfig.fallbackModel, extractConfig.fallbackProvider) 
+    : undefined;
   const temperatures = [0, 0.1, 0.3]; // Different temperatures to try
   let lastError: Error | null = null;
 

@@ -4,6 +4,7 @@ import { Document, TokenUsage } from "../../../../controllers/v1/types";
 import { generateCompletions_F0 } from "../llmExtract-f0";
 import { buildShouldExtractSystemPrompt_F0, buildShouldExtractUserPrompt_F0 } from "../build-prompts-f0";
 import { getModel } from "../../../../lib/generic-ai";
+import { getModelConfig } from "../../../llm-config";
 
 
 export async function checkShouldExtract_F0(
@@ -11,6 +12,7 @@ export async function checkShouldExtract_F0(
   multiEntitySchema: any,
   doc: Document,
 ): Promise<{ tokenUsage: TokenUsage; extract: boolean }> {
+  const config = getModelConfig("extract");
   const shouldExtractCheck = await generateCompletions_F0({
     logger: logger.child({ method: "extractService/checkShouldExtract" }),
     options: {
@@ -29,7 +31,7 @@ export async function checkShouldExtract_F0(
     },
     markdown: buildDocument(doc),
     isExtractEndpoint: true,
-    model: getModel("gpt-4o-mini"),
+    model: getModel(config.modelName, config.provider),
   });
 
   return {

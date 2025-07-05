@@ -10,6 +10,7 @@ import {
 import { billTeam } from "../../services/billing/credit_billing";
 import { logJob } from "../../services/logging/log_job";
 import { getModel } from "../generic-ai";
+import { getModelConfig } from "../llm-config";
 import { generateCompletions } from "../../scraper/scrapeURL/transformers/llmExtract";
 import { CostTracking } from "../extract/extraction-service";
 import { getACUCTeam } from "../../controllers/auth";
@@ -162,9 +163,12 @@ export async function performGenerateLlmsTxt(
               `Generating description for ${document.metadata?.url}`,
             );
 
+            // Use configuration system for model selection
+            const llmsTxtConfig = getModelConfig('llmstxt');
+            
             const { extract } = await generateCompletions({
               logger,
-              model: getModel("gpt-4o-mini", "openai"),
+              model: getModel(llmsTxtConfig.modelName, llmsTxtConfig.provider),
               options: {
                 systemPrompt: "",
                 mode: "llm",
