@@ -325,7 +325,7 @@ export async function searchController(
             { teamId: req.auth.team_id, bypassBilling: true, zeroDataRetention: false },
             matchingDocWithCost.document, 
             matchingDocWithCost.costTracking,
-            req.acuc.flags,
+            req.acuc?.flags ?? {},
           );
         } else {
           return 1;
