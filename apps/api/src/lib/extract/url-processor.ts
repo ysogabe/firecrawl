@@ -13,8 +13,8 @@ import type { CostTracking } from "./extraction-service";
 import { getModelConfig } from "../llm-config";
 
 export async function generateBasicCompletion(prompt: string, costTracking: CostTracking): Promise<{ text: string } | null> {
+  const config = getModelConfig("extract");
   try {
-    const config = getModelConfig("extract");
     const result = await generateText({
       model: getModel(config.modelName, config.provider),
       prompt: prompt,

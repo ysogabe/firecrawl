@@ -1,0 +1,116 @@
+// Add these entries to /srv/firecrawl/apps/api/src/lib/extract/usage/model-prices.ts
+
+  // Gemini 2.5 Pro - Most powerful thinking model
+  "gemini-2.5-pro": {
+    mode: "chat",
+    max_tokens: 65536,
+    max_input_tokens: 1048576,
+    max_output_tokens: 65536,
+    input_cost_per_token: 0.00000125, // $1.25 per 1M tokens (<=200k context)
+    output_cost_per_token: 0.00001,    // $10.00 per 1M tokens (<=200k context)
+    provider: "google"
+  },
+
+  // Gemini 2.5 Flash - Best price-performance with thinking
+  "gemini-2.5-flash": {
+    mode: "chat",
+    max_tokens: 65536,
+    max_input_tokens: 1048576,
+    max_output_tokens: 65536,
+    input_cost_per_token: 0.0000003,   // $0.30 per 1M tokens (text/image/video)
+    output_cost_per_token: 0.0000025,  // $2.50 per 1M tokens (including thinking)
+    provider: "google"
+  },
+
+  // Gemini 2.5 Flash-Lite Preview - Most cost-efficient
+  "gemini-2.5-flash-lite-preview-06-17": {
+    mode: "chat",
+    max_tokens: 64000,
+    max_input_tokens: 1000000,
+    max_output_tokens: 64000,
+    input_cost_per_token: 0.0000001,   // $0.10 per 1M tokens (text/image/video)
+    output_cost_per_token: 0.0000004,  // $0.40 per 1M tokens
+    provider: "google"
+  },
+
+  // Gemini 2.0 Flash - Fast with next-gen features
+  "gemini-2.0-flash": {
+    mode: "chat",
+    max_tokens: 8192,
+    max_input_tokens: 1048576,
+    max_output_tokens: 8192,
+    input_cost_per_token: 0.0000001,   // $0.10 per 1M tokens (text/image/video)
+    output_cost_per_token: 0.0000004,  // $0.40 per 1M tokens
+    provider: "google"
+  },
+
+  // Gemini 2.0 Flash-Lite - Smallest and most cost effective
+  "gemini-2.0-flash-lite": {
+    mode: "chat",
+    max_tokens: 8192,
+    max_input_tokens: 1048576,
+    max_output_tokens: 8192,
+    input_cost_per_token: 0.000000075, // $0.075 per 1M tokens
+    output_cost_per_token: 0.0000003,  // $0.30 per 1M tokens
+    provider: "google"
+  },
+
+  // Text Embedding 004 - State-of-the-art embeddings
+  "text-embedding-004": {
+    mode: "embedding",
+    max_input_tokens: 2048,
+    output_dimensions: 768,
+    input_cost_per_token: 0,           // Free in free tier
+    output_cost_per_token: 0,          // Free in free tier
+    provider: "google"
+  },
+
+  // Also add these aliases for consistency
+  "models/gemini-2.5-pro": {
+    mode: "chat",
+    max_tokens: 65536,
+    max_input_tokens: 1048576,
+    max_output_tokens: 65536,
+    input_cost_per_token: 0.00000125,
+    output_cost_per_token: 0.00001,
+    provider: "google"
+  },
+  
+  "models/gemini-2.5-flash": {
+    mode: "chat",
+    max_tokens: 65536,
+    max_input_tokens: 1048576,
+    max_output_tokens: 65536,
+    input_cost_per_token: 0.0000003,
+    output_cost_per_token: 0.0000025,
+    provider: "google"
+  },
+
+  "models/gemini-2.0-flash": {
+    mode: "chat",
+    max_tokens: 8192,
+    max_input_tokens: 1048576,
+    max_output_tokens: 8192,
+    input_cost_per_token: 0.0000001,
+    output_cost_per_token: 0.0000004,
+    provider: "google"
+  },
+
+  "models/gemini-2.0-flash-lite": {
+    mode: "chat",
+    max_tokens: 8192,
+    max_input_tokens: 1048576,
+    max_output_tokens: 8192,
+    input_cost_per_token: 0.000000075,
+    output_cost_per_token: 0.0000003,
+    provider: "google"
+  },
+
+  "models/text-embedding-004": {
+    mode: "embedding",
+    max_input_tokens: 2048,
+    output_dimensions: 768,
+    input_cost_per_token: 0,
+    output_cost_per_token: 0,
+    provider: "google"
+  },

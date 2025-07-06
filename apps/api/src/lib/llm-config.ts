@@ -25,6 +25,24 @@ const FEATURE_DEFAULTS: Record<string, ModelConfig> = {
     fallbackProvider: 'anthropic',
     fallbackModel: 'claude-3-5-sonnet-20241022'
   },
+  'extract-schema-analysis': {
+    provider: 'google',
+    modelName: 'gemini-2.5-flash',
+    fallbackProvider: 'openai',
+    fallbackModel: 'gpt-4o'
+  },
+  'extract-completion': {
+    provider: 'google',
+    modelName: 'gemini-2.5-pro',
+    fallbackProvider: 'anthropic',
+    fallbackModel: 'claude-3-5-sonnet-20241022'
+  },
+  'extract-reranker': {
+    provider: 'google',
+    modelName: 'gemini-2.5-pro',
+    fallbackProvider: 'anthropic',
+    fallbackModel: 'claude-3-5-sonnet-20241022'
+  },
   embedding: {
     provider: 'openai',
     modelName: 'text-embedding-3-small'
@@ -32,6 +50,18 @@ const FEATURE_DEFAULTS: Record<string, ModelConfig> = {
   research: {
     provider: 'openai',
     modelName: 'gpt-4o-mini'
+  },
+  'research-planning': {
+    provider: 'google',
+    modelName: 'gemini-2.5-flash',
+    fallbackProvider: 'openai',
+    fallbackModel: 'gpt-4o-mini'
+  },
+  'research-synthesis': {
+    provider: 'google',
+    modelName: 'gemini-2.5-pro',
+    fallbackProvider: 'openai',
+    fallbackModel: 'gpt-4o'
   },
   llmstxt: {
     provider: 'openai',

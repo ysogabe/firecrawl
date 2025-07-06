@@ -9,6 +9,7 @@ import { buildRerankerUserPrompt } from "./build-prompts";
 import { buildRerankerSystemPrompt } from "./build-prompts";
 import { dumpToFile } from "./helpers/dump-to-file";
 import { getModel } from "../generic-ai";
+import { getModelConfig } from "../llm-config";
 import fs from "fs/promises";
 import { CostTracking } from "./extraction-service";
 
@@ -239,6 +240,11 @@ export async function rerankLinksWithLLM(
 
   let totalCost = 0;
 
+  const config = getModelConfig("extract-reranker");
+  const retryConfig = config.fallbackProvider && config.fallbackModel 
+    ? { provider: config.fallbackProvider, modelName: config.fallbackModel }
+    : getModelConfig("extract");
+
   const results = await Promise.all(
     chunks.map(async (chunk, chunkIndex) => {
       // console.log(`Processing chunk ${chunkIndex + 1}/${chunks.length} with ${chunk.length} links`);
@@ -298,8 +304,8 @@ export async function rerankLinksWithLLM(
           let completion: any;
           try {
             const completionPromise = generateCompletions({
-              model: getModel("gemini-2.5-pro", "vertex"),
-              retryModel: getModel("gemini-2.5-pro", "google"),
+              model: getModel(config.modelName, config.provider),
+              retryModel: getModel(retryConfig.modelName, retryConfig.provider),
               logger: logger.child({
                 method: "rerankLinksWithLLM",
                 chunk: chunkIndex + 1,

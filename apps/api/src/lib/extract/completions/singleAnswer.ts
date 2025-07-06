@@ -6,6 +6,7 @@ import {
 import { buildDocument } from "../build-document";
 import { Document, TokenUsage } from "../../../controllers/v1/types";
 import { getModel } from "../../../lib/generic-ai";
+import { getModelConfig } from "../../../lib/llm-config";
 import { extractData } from "../../../scraper/scrapeURL/lib/extractSmartScrape";
 import { CostTracking } from "../extraction-service";
 
@@ -34,6 +35,11 @@ export async function singleAnswerCompletion({
   tokenUsage: TokenUsage;
   sources: string[];
 }> {
+  const config = getModelConfig("extract-completion");
+  const retryConfig = config.fallbackProvider && config.fallbackModel 
+    ? { provider: config.fallbackProvider, modelName: config.fallbackModel }
+    : getModelConfig("extract");
+
   const docsPrompt = `Today is: ` + new Date().toISOString() + `.\n` + prompt;
   const generationOptions: GenerateCompletionsOptions = {
     logger: logger.child({
@@ -51,8 +57,8 @@ export async function singleAnswerCompletion({
     },
     markdown: `${singleAnswerDocs.map((x, i) => `[START_PAGE (ID: ${i})]` + buildDocument(x)).join("\n")} [END_PAGE]\n`,
     isExtractEndpoint: true,
-    model: getModel("gemini-2.5-pro", "vertex"),
-    retryModel: getModel("gemini-2.5-pro", "google"),
+    model: getModel(config.modelName, config.provider),
+    retryModel: getModel(retryConfig.modelName, retryConfig.provider),
     costTrackingOptions: {
       costTracking,
       metadata: {

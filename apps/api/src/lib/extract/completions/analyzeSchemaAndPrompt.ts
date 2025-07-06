@@ -10,6 +10,7 @@ import {
 } from "../build-prompts";
 import { jsonSchema } from "ai";
 import { getModel } from "../../../lib/generic-ai";
+import { getModelConfig } from "../../../lib/llm-config";
 import { Logger } from "winston";
 import { CostTracking } from "../extraction-service";
 export async function analyzeSchemaAndPrompt(
@@ -32,7 +33,8 @@ export async function analyzeSchemaAndPrompt(
 
   const schemaString = JSON.stringify(schema);
 
-  const model = getModel("gpt-4o", "openai");
+  const config = getModelConfig("extract-schema-analysis");
+  const model = getModel(config.modelName, config.provider);
 
   const checkSchema = z
     .object({

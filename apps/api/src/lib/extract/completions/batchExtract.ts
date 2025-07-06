@@ -10,6 +10,7 @@ import {
   buildBatchExtractSystemPrompt,
 } from "../build-prompts";
 import { getModel } from "../../generic-ai";
+import { getModelConfig } from "../../llm-config";
 import { CostTracking, CostLimitExceededError } from "../extraction-service";
 import fs from "fs/promises";
 import { extractData } from "../../../scraper/scrapeURL/lib/extractSmartScrape";
@@ -58,6 +59,11 @@ export async function batchExtractPromise(options: BatchExtractOptions, logger: 
     extractId,
     sessionId } = options;
 
+  const config = getModelConfig("extract-completion");
+  const retryConfig = config.fallbackProvider && config.fallbackModel 
+    ? { provider: config.fallbackProvider, modelName: config.fallbackModel }
+    : getModelConfig("extract");
+
   const generationOptions: GenerateCompletionsOptions = {
     logger: logger.child({
       method: "extractService/generateCompletions",
@@ -74,8 +80,8 @@ export async function batchExtractPromise(options: BatchExtractOptions, logger: 
     },
     markdown: buildDocument(doc),
     isExtractEndpoint: true,
-    model: getModel("gemini-2.5-pro", "vertex"),
-    retryModel: getModel("gemini-2.5-pro", "google"),
+    model: getModel(config.modelName, config.provider),
+    retryModel: getModel(retryConfig.modelName, retryConfig.provider),
     costTrackingOptions: {
       costTracking: options.costTracking,
       metadata: {

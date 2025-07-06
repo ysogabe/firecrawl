@@ -12,6 +12,7 @@ import {
 import { ExtractOptions } from "../../controllers/v1/types";
 
 import { getModel } from "../generic-ai";
+import { getModelForFeature } from "../llm-config";
 import { CostTracking } from "../extract/extraction-service";
 interface AnalysisResult {
   gaps: string[];
@@ -196,6 +197,7 @@ export class ResearchLLMService {
           The first SERP query you generate should be a very concise, simple version of the topic. `,
       },
       markdown: "",
+      model: getModelForFeature('research-planning'),
       costTrackingOptions: {
         costTracking,
         metadata: {
@@ -256,6 +258,7 @@ export class ResearchLLMService {
           ).text,
         },
         markdown: "",
+        model: getModelForFeature('research-planning'),
         costTrackingOptions: {
           costTracking,
           metadata: {
@@ -329,7 +332,7 @@ export class ResearchLLMService {
         ).text,
       },
       markdown: "",
-      model: getModel("o3-mini"),
+      model: getModelForFeature('research-synthesis'),
       costTrackingOptions: {
         costTracking,
         metadata: {
