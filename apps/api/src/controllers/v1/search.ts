@@ -7,6 +7,7 @@ import {
   searchRequestSchema,
   ScrapeOptions,
   TeamFlags,
+  scrapeOptions,
 } from "./types";
 import { billTeam } from "../../services/billing/credit_billing";
 import { v4 as uuidv4 } from "uuid";
@@ -325,7 +326,7 @@ export async function searchController(
             { teamId: req.auth.team_id, bypassBilling: true, zeroDataRetention: false },
             matchingDocWithCost.document, 
             matchingDocWithCost.costTracking,
-            req.acuc?.flags ?? {},
+            req.acuc?.flags ?? null,
           );
         } else {
           return 1;
@@ -375,6 +376,11 @@ export async function searchController(
         mode: "search",
         url: req.body.query,
         scrapeOptions: req.body.scrapeOptions,
+        crawlerOptions: {
+          ...req.body,
+          query: undefined,
+          scrapeOptions: undefined,
+        },
         origin: req.body.origin,
         integration: req.body.integration,
         credits_billed,

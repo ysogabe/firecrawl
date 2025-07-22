@@ -464,6 +464,7 @@ class FirecrawlApp:
             url: str,
             *,
             formats: Optional[List[Literal["markdown", "html", "rawHtml", "content", "links", "screenshot", "screenshot@fullPage", "extract", "json", "changeTracking"]]] = None,
+            headers: Optional[Dict[str, str]] = None,
             include_tags: Optional[List[str]] = None,
             exclude_tags: Optional[List[str]] = None,
             only_main_content: Optional[bool] = None,
@@ -490,6 +491,7 @@ class FirecrawlApp:
         Args:
           url (str): Target URL to scrape
           formats (Optional[List[Literal["markdown", "html", "rawHtml", "content", "links", "screenshot", "screenshot@fullPage", "extract", "json"]]]): Content types to retrieve (markdown/html/etc)
+          headers (Optional[Dict[str, str]]): Custom HTTP headers
           include_tags (Optional[List[str]]): HTML tags to include
           exclude_tags (Optional[List[str]]): HTML tags to exclude
           only_main_content (Optional[bool]): Extract main content only
@@ -518,7 +520,7 @@ class FirecrawlApp:
         Raises:
           Exception: If scraping fails
         """
-        headers = self._prepare_headers()
+        _headers = self._prepare_headers()
 
         # Build scrape parameters
         scrape_params = {
@@ -529,6 +531,8 @@ class FirecrawlApp:
         # Add optional parameters if provided
         if formats:
             scrape_params['formats'] = formats
+        if headers:
+            scrape_params['headers'] = headers
         if include_tags:
             scrape_params['includeTags'] = include_tags
         if exclude_tags:
@@ -584,7 +588,7 @@ class FirecrawlApp:
         # Make request
         response = requests.post(
             f'{self.api_url}/v1/scrape',
-            headers=headers,
+            headers=_headers,
             json=scrape_params,
             timeout=(timeout + 5000 if timeout else None)
         )
@@ -2963,6 +2967,7 @@ class AsyncFirecrawlApp(FirecrawlApp):
             url: str,
             *,
             formats: Optional[List[Literal["markdown", "html", "rawHtml", "content", "links", "screenshot", "screenshot@fullPage", "extract", "json", "changeTracking"]]] = None,
+            headers: Optional[Dict[str, str]] = None,
             include_tags: Optional[List[str]] = None,
             exclude_tags: Optional[List[str]] = None,
             only_main_content: Optional[bool] = None,
@@ -2985,6 +2990,7 @@ class AsyncFirecrawlApp(FirecrawlApp):
         Args:
           url (str): Target URL to scrape
           formats (Optional[List[Literal["markdown", "html", "rawHtml", "content", "links", "screenshot", "screenshot@fullPage", "extract", "json"]]]): Content types to retrieve (markdown/html/etc)
+          headers (Optional[Dict[str, str]]): Custom HTTP headers
           include_tags (Optional[List[str]]): HTML tags to include
           exclude_tags (Optional[List[str]]): HTML tags to exclude
           only_main_content (Optional[bool]): Extract main content only
@@ -3019,7 +3025,7 @@ class AsyncFirecrawlApp(FirecrawlApp):
         # Validate any additional kwargs
         self._validate_kwargs(kwargs, "scrape_url")
 
-        headers = self._prepare_headers()
+        _headers = self._prepare_headers()
 
         # Build scrape parameters
         scrape_params = {
@@ -3030,6 +3036,8 @@ class AsyncFirecrawlApp(FirecrawlApp):
         # Add optional parameters if provided and not None
         if formats:
             scrape_params['formats'] = formats
+        if headers:
+            scrape_params['headers'] = headers
         if include_tags:
             scrape_params['includeTags'] = include_tags
         if exclude_tags:
@@ -3077,7 +3085,7 @@ class AsyncFirecrawlApp(FirecrawlApp):
         response = await self._async_post_request(
             f'{self.api_url}{endpoint}',
             scrape_params,
-            headers
+            _headers
         )
 
         if response.get('success') and 'data' in response:
@@ -3366,7 +3374,7 @@ class AsyncFirecrawlApp(FirecrawlApp):
             except:
                 raise Exception(f'Failed to parse Firecrawl response as JSON.')
         else:
-            self._handle_error(response, 'start batch scrape job')
+            await self._handle_error(response, 'start batch scrape job')
 
     async def crawl_url(
         self,
@@ -3485,7 +3493,7 @@ class AsyncFirecrawlApp(FirecrawlApp):
                 raise Exception(f'Failed to parse Firecrawl response as JSON.')
             return await self._async_monitor_job_status(id, headers, poll_interval)
         else:
-            self._handle_error(response, 'start crawl job')
+            await self._handle_error(response, 'start crawl job')
 
 
     async def async_crawl_url(
@@ -3603,7 +3611,7 @@ class AsyncFirecrawlApp(FirecrawlApp):
             except:
                 raise Exception(f'Failed to parse Firecrawl response as JSON.')
         else:
-            self._handle_error(response, 'start crawl job')
+            await self._handle_error(response, 'start crawl job')
 
     async def check_crawl_status(self, id: str) -> CrawlStatusResponse:
         """

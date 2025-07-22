@@ -34,6 +34,7 @@ import { LLMRefusalError } from "./transformers/llmExtract";
 import { urlSpecificParams } from "./lib/urlSpecificParams";
 import { loadMock, MockState } from "./lib/mock";
 import { CostTracking } from "../../lib/extract/extraction-service";
+import { addIndexRFInsertJob, generateDomainSplits, hashURL, index_supabase_service, normalizeURLForIndex, useIndex } from "../../services/index";
 
 export type ScrapeUrlResponse = (
   | {
@@ -314,7 +315,7 @@ async function scrapeURLLoop(meta: Meta): Promise<ScrapeUrlResponse> {
         (engineResult.statusCode >= 200 && engineResult.statusCode < 300) ||
         engineResult.statusCode === 304;
       const hasNoPageError = engineResult.error === undefined;
-      const isLikelyProxyError = [403, 429].includes(engineResult.statusCode);
+      const isLikelyProxyError = [401, 403, 429].includes(engineResult.statusCode);
 
       meta.results[engine] = {
         state: "success",
@@ -368,7 +369,7 @@ async function scrapeURLLoop(meta: Meta): Promise<ScrapeUrlResponse> {
           startedAt,
           finishedAt: Date.now(),
         };
-      } else if (error instanceof TimeoutError) {
+      } else if (error instanceof TimeoutError || (error instanceof Error && error.name === "TimeoutError")) {
         meta.logger.info("Engine " + engine + " timed out while scraping.", {
           error,
         });
@@ -435,10 +436,14 @@ async function scrapeURLLoop(meta: Meta): Promise<ScrapeUrlResponse> {
   }
 
   if (result === null) {
-    throw new NoEnginesLeftError(
-      fallbackList.map((x) => x.engine),
-      meta.results,
-    );
+    if (Object.values(meta.results).every(x => x.state === "timeout")) {
+      throw new TimeoutSignal();
+    } else {
+      throw new NoEnginesLeftError(
+        fallbackList.map((x) => x.engine),
+        meta.results,
+      );
+    }
   }
 
   let document: Document = {
@@ -498,6 +503,55 @@ export async function scrapeURL(
 
   if (meta.rewrittenUrl) {
     meta.logger.info("Rewriting URL");
+  }
+
+  const shouldRecordFrequency = useIndex
+    && meta.options.storeInCache
+    && !meta.internalOptions.zeroDataRetention
+    && internalOptions.teamId !== process.env.PRECRAWL_TEAM_ID;
+  if (shouldRecordFrequency) {
+    (async () => {
+      try {
+        meta.logger.info("Recording frequency");
+        const normalizedURL = normalizeURLForIndex(meta.url);
+        const urlHash = hashURL(normalizedURL);
+
+        let { data, error } = await index_supabase_service
+          .from("index")
+          .select("id, created_at, status")
+          .eq("url_hash", urlHash)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (error) {
+          meta.logger.warn("Failed to get age data", { error });
+        }
+
+        const age = data?.[0]
+          ? Date.now() - new Date(data[0].created_at).getTime()
+          : -1;
+        
+        const domainSplits = generateDomainSplits(new URL(normalizeURLForIndex(meta.url)).hostname);
+        const domainHash = hashURL(domainSplits.slice(-1)[0]);
+
+        const out = {
+          domain_hash: domainHash,
+          url: meta.url,
+          age2: age,
+        };
+
+        await addIndexRFInsertJob(out);
+        meta.logger.info("Recorded frequency", { out });
+      } catch (error) {
+        meta.logger.warn("Failed to record frequency", { error });
+      }
+    })();
+  } else {
+    meta.logger.info("Not recording frequency", {
+      useIndex,
+      storeInCache: meta.options.storeInCache,
+      zeroDataRetention: meta.internalOptions.zeroDataRetention,
+    });
   }
 
   try {
